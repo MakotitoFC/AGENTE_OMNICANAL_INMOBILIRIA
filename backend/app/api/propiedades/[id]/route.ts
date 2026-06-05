@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
+import type { ApiResponse, Propiedad } from '@/types';
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+type Params = { params: { id: string } };
+
+
+export async function GET(_req: NextRequest, { params }: Params) {
     try {
         const { data, error } = await supabase
             .from('propiedades')
@@ -12,75 +13,65 @@ export async function GET(
             .eq('id', params.id)
             .single();
 
-        if (error) throw error;
-
-        if (!data) {
-            return NextResponse.json({
-                success: false,
-                error: 'Propiedad no encontrada'
-            }, { status: 404 });
+        if (error || !data) {
+            return NextResponse.json(
+                { success: false, error: 'Propiedad no encontrada' } as ApiResponse,
+                { status: 404 }
+            );
         }
 
-        return NextResponse.json({
-            success: true,
-            data: data
-        });
-    } catch (error: any) {
-        return NextResponse.json({
-            success: false,
-            error: error.message || 'Error al obtener propiedad'
-        }, { status: 500 });
+        return NextResponse.json({ success: true, data } as ApiResponse<Propiedad>);
+    } catch (error) {
+        console.error('[GET /api/propiedades/[id]]', error);
+        return NextResponse.json(
+            { success: false, error: 'Error al obtener propiedad' } as ApiResponse,
+            { status: 500 }
+        );
     }
 }
 
-export async function PUT(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: Params) {
     try {
         const body = await request.json();
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('propiedades')
-            .update(body)
+            .update({ ...body })
             .eq('id', params.id)
             .select()
             .single();
 
         if (error) throw error;
 
-        return NextResponse.json({
-            success: true,
-            data: data
-        });
-    } catch (error: any) {
-        return NextResponse.json({
-            success: false,
-            error: error.message || 'Error al actualizar propiedad'
-        }, { status: 500 });
+        return NextResponse.json(
+            { success: true, data, message: 'Propiedad actualizada' } as ApiResponse,
+        );
+    } catch (error) {
+        console.error('[PUT /api/propiedades/[id]]', error);
+        return NextResponse.json(
+            { success: false, error: 'Error al actualizar propiedad' } as ApiResponse,
+            { status: 500 }
+        );
     }
 }
 
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, { params }: Params) {
     try {
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('propiedades')
-            .delete()
+            .update({ activo: false })
             .eq('id', params.id);
 
         if (error) throw error;
 
-        return NextResponse.json({
-            success: true,
-            message: 'Propiedad eliminada'
-        });
-    } catch (error: any) {
-        return NextResponse.json({
-            success: false,
-            error: error.message || 'Error al eliminar propiedad'
-        }, { status: 500 });
+        return NextResponse.json(
+            { success: true, message: 'Propiedad desactivada del portal' } as ApiResponse,
+        );
+    } catch (error) {
+        console.error('[DELETE /api/propiedades/[id]]', error);
+        return NextResponse.json(
+            { success: false, error: 'Error al eliminar propiedad' } as ApiResponse,
+            { status: 500 }
+        );
     }
 }
