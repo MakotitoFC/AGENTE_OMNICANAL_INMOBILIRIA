@@ -63,3 +63,7 @@ yarn-error.log*
 # Editores
 .vscode/
 .idea/
+
+__pycache__/
+*.pyc
+*.pyo

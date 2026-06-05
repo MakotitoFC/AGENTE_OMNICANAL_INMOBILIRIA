@@ -1,0 +1,10 @@
+RESUMEN DATASET LEADS INMOBILIARIOS
+============================================================
+Fecha generación: 2026-06-03 21:36:01
+Total registros: 5000
+Conversiones: 2707 (54.1%)
+Tasa conversión por perfil:
+  - explorador: 97/1000 (9.7%)
+  - referido: 842/1000 (84.2%)
+  - inversor: 743/1250 (59.4%)
+  - familiar: 1025/1750 (58.6%)

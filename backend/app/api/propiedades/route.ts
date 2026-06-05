@@ -1,62 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
+import type { ApiResponse, Propiedad, PropiedadInput } from '@/types';
 
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        let query = supabase.from('propiedades').select('*');
-
-        // Filtros según tus columnas reales
-        const tipo = searchParams.get('tipo');
-        const precioMin = searchParams.get('precioMin');
-        const precioMax = searchParams.get('precioMax');
         const distrito = searchParams.get('distrito');
-        const dormitorios = searchParams.get('dormitorios');
+        const tipo = searchParams.get('tipo');
+        const estado = searchParams.get('estado') ?? 'disponible';
+        const soloActivas = searchParams.get('todas') !== 'true';
+        const page = parseInt(searchParams.get('page') ?? '1');
+        const pageSize = parseInt(searchParams.get('pageSize') ?? '12');
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
 
+        let query = supabase
+            .from('propiedades')
+            .select('*', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(from, to);
+
+        if (soloActivas) query = query.eq('activo', true);
+        if (estado && soloActivas) query = query.eq('estado', estado);
+        if (distrito) query = query.eq('distrito', distrito);
         if (tipo) query = query.eq('tipo', tipo);
-        if (precioMin) query = query.gte('precio', precioMin);
-        if (precioMax) query = query.lte('precio', precioMax);
-        if (distrito) query = query.ilike('distrito', `%${distrito}%`);
-        if (dormitorios) query = query.eq('dormitorios', parseInt(dormitorios));
 
-        // Ordenar por created_at (existe en tu tabla)
-        const { data, error } = await query.order('created_at', { ascending: false });
+        const { data, error, count } = await query;
 
         if (error) throw error;
 
-        return NextResponse.json({
+        const response: ApiResponse<{ propiedades: Propiedad[]; total: number }> = {
             success: true,
-            data: data
-        });
-    } catch (error: any) {
-        console.error('Error:', error);
-        return NextResponse.json({
-            success: false,
-            error: error.message || 'Error al obtener propiedades'
-        }, { status: 500 });
+            data: {
+                propiedades: data ?? [],
+                total: count ?? 0,
+            },
+        };
+
+        return NextResponse.json(response);
+    } catch (error) {
+        console.error('[GET /api/propiedades]', error);
+        return NextResponse.json(
+            { success: false, error: 'Error al obtener propiedades' } as ApiResponse,
+            { status: 500 }
+        );
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
+        const body: PropiedadInput = await request.json();
 
-        const { data, error } = await supabase
+        if (!body.direccion) {
+            return NextResponse.json(
+                { success: false, error: 'La dirección es requerida' } as ApiResponse,
+                { status: 400 }
+            );
+        }
+
+        const { data, error } = await supabaseAdmin
             .from('propiedades')
-            .insert([body])
+            .insert({
+                ...body,
+                activo: body.activo ?? true,
+                moneda: body.moneda ?? 'PEN',
+                estado: body.estado ?? 'disponible',
+            })
             .select()
             .single();
 
         if (error) throw error;
 
-        return NextResponse.json({
-            success: true,
-            data: data
-        }, { status: 201 });
-    } catch (error: any) {
-        return NextResponse.json({
-            success: false,
-            error: error.message || 'Error al crear propiedad'
-        }, { status: 500 });
+        return NextResponse.json(
+            { success: true, data, message: 'Propiedad creada exitosamente' } as ApiResponse,
+            { status: 201 }
+        );
+    } catch (error) {
+        console.error('[POST /api/propiedades]', error);
+        return NextResponse.json(
+            { success: false, error: 'Error al crear propiedad' } as ApiResponse,
+            { status: 500 }
+        );
     }
 }
